@@ -7,6 +7,8 @@ Assumes `https://github.com/google/material-design-icons` is cloned in a directo
 subset-gf-icons repo.
 
 ```shell
+# Establish a virtual environment
+$ pip install -e .
 $ subset_gf_icons ../material-design-icons/font/MaterialIcons-Regular.ttf menu alarm_on
 $ ttx -o - ../material-design-icons/font/MaterialIcons-Regular-subset.ttf
 
