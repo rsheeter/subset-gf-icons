@@ -14,32 +14,80 @@
 
 """Subset a Google-style icon font.
 
+Subset by glyph id to avoid an over-large layout closure (e.g. alarm_on would
+retain the alarm icon). If we subset by the glyph ids for the icon name(s)
+plus the glyph ids of the targets of ligatures we should keep the activation
+characters and the ligatures and nothing else.
+
 Usage:
-subset_gf_icons ~/Downloads/MaterialIcons-Regular.ttf menu
-<writes font-subset.ttf>
+    subset_gf_icons ~/Downloads/MaterialIcons-Regular.ttf menu
+    subset_gf_icons ~/Downloads/MaterialIcons-Regular.ttf menu alarm etc
 """
 from absl import app
 from fontTools import ttLib, subset
+from functools import reduce
 import uharfbuzz as hb
+from pathlib import Path
+
+
+ZERO_WIDTH_SPACE = chr(0x200B)
+
+
+def _shape(hb_font, text):
+    buf = hb.Buffer()
+    buf.add_str(text)
+    buf.guess_segment_properties()
+    hb.shape(hb_font, buf, {})
+    return buf
 
 
 def _run(argv):
     assert len(argv) > 2, "Must specify at least a font and a single icon name"
-    blob = hb.Blob.from_file_path(argv[1])
+    in_file = Path(argv[1])
+    assert in_file.is_file(), in_file
+
+    blob = hb.Blob.from_file_path(in_file)
     face = hb.Face(blob)
     font = hb.Font(face)
 
-    for icon_name in argv[2:]:
+    icon_names = set(argv[2:])
+
+    # zero-width space breaks any accidental ligature here
+    name_chars = ZERO_WIDTH_SPACE.join(
+        sorted(reduce(lambda a, e: a | set(e), icon_names, set()))
+    )
+    gids = reduce(
+        lambda a, e: a | {e.codepoint},
+        _shape(font, name_chars).glyph_infos,
+        set(),
+    )
+
+    for icon_name in icon_names:
         buf = hb.Buffer()
         buf.add_str(icon_name)
         buf.guess_segment_properties()
         hb.shape(font, buf, {})
 
         infos = buf.glyph_infos
-        assert len(infos) == 1, f"'{icon_name}' doesn't appear to be the name of a single icon"
+        assert (
+            len(infos) == 1
+        ), f"'{icon_name}' doesn't appear to be the name of a single icon"
 
         info = infos[0]
-        print(f"{icon_name} gid {info.codepoint}")
+        gids.add(info.codepoint)  # the gid is in .codepoint
+
+    print("Subsetting down to {len(gids)} glyphs w/o layout closure")
+    options = subset.Options()
+    options.layout_closure = False
+    subsetter = subset.Subsetter(options)
+    subsetter.populate(gids=gids)
+    subset_font = ttLib.TTFont(in_file)
+    subsetter.subset(subset_font)
+
+    out_file = in_file.parent / (in_file.stem + "-subset" + in_file.suffix)
+    subset_font.save(out_file)
+
+    print("Wrote subset to", out_file)
 
 
 def main(argv=None):
