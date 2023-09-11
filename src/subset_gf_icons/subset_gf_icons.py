@@ -76,7 +76,7 @@ def _run(argv):
         info = infos[0]
         gids.add(info.codepoint)  # the gid is in .codepoint
 
-    print("Subsetting down to {len(gids)} glyphs w/o layout closure")
+    print(f"Subsetting down to {len(gids)} glyphs w/o layout closure")
     options = subset.Options()
     options.layout_closure = False
     subsetter = subset.Subsetter(options)
