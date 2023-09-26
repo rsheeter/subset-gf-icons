@@ -28,6 +28,7 @@ setup_args = dict(
     setup_requires=["setuptools_scm"],
     install_requires=[
         "absl-py>=1.4.0",
+        "brotli>=1.1.0",
         "fonttools>=4.42.1",
         "uharfbuzz>=0.37.2",
     ],
