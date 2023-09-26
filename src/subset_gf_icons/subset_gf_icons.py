@@ -42,9 +42,6 @@ flags.DEFINE_enum(
 )
 
 
-ZERO_WIDTH_SPACE = chr(0x200B)
-
-
 def _shape(hb_font, text):
     buf = hb.Buffer()
     buf.add_str(text)
@@ -64,10 +61,13 @@ def _run(argv):
 
     icon_names = set(argv[2:])
 
-    # zero-width space breaks any accidental ligature here
-    name_chars = ZERO_WIDTH_SPACE.join(
+    # \n breaks any accidental ligature here. It will bring in 0 but we want notdef anyway so that's fine.
+    name_chars = "\n".join(
         sorted(reduce(lambda a, e: a | set(e), icon_names, set()))
     )
+    print(name_chars)
+
+
     gids = reduce(
         lambda a, e: a | {e.codepoint},
         _shape(font, name_chars).glyph_infos,
@@ -88,7 +88,6 @@ def _run(argv):
         info = infos[0]
         gids.add(info.codepoint)  # the gid is in .codepoint
 
-    print(f"Subsetting down to {len(gids)} glyphs w/o layout closure")
     options = subset.Options()
     options.layout_closure = False
     subsetter = subset.Subsetter(options)
