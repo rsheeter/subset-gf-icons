@@ -37,7 +37,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_enum(
     "flavor",
     None,
-    ['woff', 'woff2'],
+    ["woff", "woff2"],
     "Specify flavor of output font file. May be 'woff' or 'woff2'. If unspecified output is uncompressed.",
 )
 
@@ -62,11 +62,7 @@ def _run(argv):
     icon_names = set(argv[2:])
 
     # \n breaks any accidental ligature here. It will bring in 0 but we want notdef anyway so that's fine.
-    name_chars = "\n".join(
-        sorted(reduce(lambda a, e: a | set(e), icon_names, set()))
-    )
-    print(name_chars)
-
+    name_chars = "\n".join(sorted(reduce(lambda a, e: a | set(e), icon_names, set())))
 
     gids = reduce(
         lambda a, e: a | {e.codepoint},
@@ -98,7 +94,7 @@ def _run(argv):
     out_file = in_file.parent / (in_file.stem + "-subset" + in_file.suffix)
 
     if FLAGS.flavor is not None:
-        out_file = out_file.with_suffix('.' + FLAGS.flavor)
+        out_file = out_file.with_suffix("." + FLAGS.flavor)
         subset_font.flavor = FLAGS.flavor
 
     subset_font.save(out_file)
