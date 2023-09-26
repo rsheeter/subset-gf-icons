@@ -24,10 +24,22 @@ Usage:
     subset_gf_icons ~/Downloads/MaterialIcons-Regular.ttf menu alarm etc
 """
 from absl import app
+from absl import flags
 from fontTools import ttLib, subset
 from functools import reduce
 import uharfbuzz as hb
 from pathlib import Path
+
+
+FLAGS = flags.FLAGS
+
+
+flags.DEFINE_enum(
+    "flavor",
+    None,
+    ['woff', 'woff2'],
+    "Specify flavor of output font file. May be 'woff' or 'woff2'. If unspecified output is uncompressed.",
+)
 
 
 ZERO_WIDTH_SPACE = chr(0x200B)
@@ -85,6 +97,11 @@ def _run(argv):
     subsetter.subset(subset_font)
 
     out_file = in_file.parent / (in_file.stem + "-subset" + in_file.suffix)
+
+    if FLAGS.flavor is not None:
+        out_file = out_file.with_suffix('.' + FLAGS.flavor)
+        subset_font.flavor = FLAGS.flavor
+
     subset_font.save(out_file)
 
     print("Wrote subset to", out_file)
