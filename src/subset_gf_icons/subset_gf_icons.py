@@ -34,6 +34,13 @@ from pathlib import Path
 FLAGS = flags.FLAGS
 
 
+# Input to https://github.com/fonttools/fonttools/blob/98242634c45cf4ca9f8aff6fd059de9dcf734471/Lib/fontTools/subset/__init__.py#L1821
+class ClosureState:
+    def __init__(self, glyphs):
+        self.table = ""
+        self.glyphs = glyphs
+
+
 flags.DEFINE_enum(
     "flavor",
     None,
@@ -70,6 +77,11 @@ def _run(argv):
         set(),
     )
 
+    tt_font = ttLib.TTFont(in_file)
+    glyph_order = tt_font.getGlyphOrder()
+
+    icon_glyph_names = set()
+
     for icon_name in icon_names:
         buf = hb.Buffer()
         buf.add_str(icon_name)
@@ -82,22 +94,33 @@ def _run(argv):
         ), f"'{icon_name}' doesn't appear to be the name of a single icon"
 
         info = infos[0]
-        gids.add(info.codepoint)  # the gid is in .codepoint
+        # the gid is in .codepoint
+        gids.add(info.codepoint)
+        icon_glyph_names.add(glyph_order[info.codepoint])
+
+    # We do NOT want to close over all the gids of name chars, that results in a subset to "alarm_on"
+    # including the glyph for "alarm" However, we DO want to close over the icon gids themselves to
+    # ensure we include things like their contextual subs
+    # See https://github.com/google/material-design-icons/issues/1201#issuecomment-1752180289 for why
+    # this matters
+    state = ClosureState(icon_glyph_names)
+    tt_font["GSUB"].closure_glyphs(state)
+    gids |= {tt_font.getGlyphID(gn) for gn in state.glyphs}
 
     options = subset.Options()
     options.layout_closure = False
     subsetter = subset.Subsetter(options)
     subsetter.populate(gids=gids)
-    subset_font = ttLib.TTFont(in_file)
-    subsetter.subset(subset_font)
+
+    subsetter.subset(tt_font)
 
     out_file = in_file.parent / (in_file.stem + "-subset" + in_file.suffix)
 
     if FLAGS.flavor is not None:
         out_file = out_file.with_suffix("." + FLAGS.flavor)
-        subset_font.flavor = FLAGS.flavor
+        tt_font.flavor = FLAGS.flavor
 
-    subset_font.save(out_file)
+    tt_font.save(out_file)
 
     print("Wrote subset to", out_file)
 
